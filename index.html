@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nice OCR</title>
+    <style>
+        @font-face {
+            font-family: 'Noto Serif SC';
+            font-style: normal;
+            font-weight: regular;
+            src: url('//lib.baomitu.com/fonts/noto-serif-sc/noto-serif-sc-regular.eot');
+            /* IE9 Compat Modes */
+            src: local('Noto Serif SC'),
+                local('NotoSans SC-Normal'),
+                url('//lib.baomitu.com/fonts/noto-serif-sc/noto-serif-sc-regular.eot?#iefix') format('embedded-opentype'),
+                /* IE6-IE8 */
+                url('//lib.baomitu.com/fonts/noto-serif-sc/noto-serif-sc-regular.woff2') format('woff2'),
+                /* Super Modern Browsers */
+                url('//lib.baomitu.com/fonts/noto-serif-sc/noto-serif-sc-regular.woff') format('woff'),
+                /* Modern Browsers */
+                url('//lib.baomitu.com/fonts/noto-serif-sc/noto-serif-sc-regular.ttf') format('truetype'),
+                /* Safari, Android, iOS */
+                url('//lib.baomitu.com/fonts/noto-serif-sc/noto-serif-sc-regular.svg#NotoSans SC') format('svg');
+            /* Legacy iOS */
+        }
+
+        #text {
+            font-size: 20px;
+            font-family: "Noto Serif SC";
+            color: #000000;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <h1>Nice OCR</h1>
+        <div>
+            <textarea name="text" id="text" cols="60" rows="10"></textarea>
+        </div>
+        <div>
+            <label>
+                Background Color:
+                <input type="color" name="bg" id="bgcolor" value="#ffc0c0">
+            </label>
+            <label>
+                Foreground Color:
+                <input type="color" name="fg" id="fgcolor" value="#101010">
+            </label>
+            <label>
+                Font Size:
+                <input type="number" name="fs" id="fontsize" value="20">
+            </label>
+        </div>
+        <div>
+            <button id="generate">Generate</button>
+            <button id="download">Download</button>
+        </div>
+        <div>
+            <canvas id="canvas" />
+        </div>
+    </div>
+    <script>
+        const line_height_scale = 1.2;
+        const canvas = document.getElementById('canvas');
+
+        let ctx = canvas.getContext('2d');
+
+        function measureLine(line, fontsize) {
+            let length = 0;
+            for (let i = 0; i < line.length; i++) {
+                let char = line[i];
+                let white = in_whitelist(char);
+                if (!white) {
+                    length = Math.ceil(length / fontsize) * fontsize;
+                }
+                length += ctx.measureText(char).width;
+            }
+            return length;
+        }
+
+        function fillLine(x, y, line, fontsize) {
+            for (let i = 0; i < line.length; i++) {
+                let char = line[i];
+                let white = in_whitelist(char);
+                if (!white) {
+                    x = Math.ceil(x / fontsize) * fontsize;
+                }
+                ctx.fillText(char, x, y);
+                x += ctx.measureText(char).width;
+            }
+        }
+
+        function wrapLine(text, fontsize, max_width) {
+            let new_lines = [];
+            for (const line of text.split('\n')) {
+                let new_line = '';
+                for (const char of line) {
+                    if (measureLine(new_line + char, fontsize) > max_width) {
+                        new_lines.push(new_line);
+                        new_line = '';
+                    }
+                    if (new_line == '' && char == ' ') {
+                        continue;
+                    }
+                    new_line += char;
+                }
+                new_lines.push(new_line);
+            }
+            return new_lines;
+        }
+
+        function estimate_img_size(text, fontsize) {
+            ctx.font = `${fontsize}px "Noto Serif SC"`;
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+
+            const full_line_lengths = text.split('\n').map(line => measureLine(line, fontsize));
+            let w = full_line_lengths.reduce((a, b) => a + b, 0) / full_line_lengths.length;
+            w = Math.min(w, 60 * fontsize);
+            if (w % fontsize) {
+                w += fontsize - w % fontsize;
+            }
+            let img_w = w + 2 * fontsize;
+            const lines = wrapLine(text, fontsize, w);
+            let num_lines = lines.length + 2;
+            let img_h = num_lines * fontsize * line_height_scale;
+            console.log(lines, img_w, img_h);
+            return { img_w, img_h, lines };
+        }
+
+        function get_filler(length) {
+            const fillers = [
+                '哈哈哈哈哈哈哈哈哈',
+                '绿水青山就是金山银山',
+                '实现中华民族伟大复兴',
+                '实现伟大梦想共建美好明天',
+                '始终坚持和发展中国特色社会主义',
+            ];
+            let result = '';
+            while (result.length < length) {
+                result += fillers[Math.floor(Math.random() * fillers.length)];
+            }
+            return result;
+        }
+
+        function make_pic(text, fontsize) {
+            let { img_w, img_h, lines } = estimate_img_size(text, fontsize);
+            canvas.width = img_w;
+            canvas.height = img_h;
+
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, img_w, img_h);
+
+            const bgcolor = document.getElementById('bgcolor').value;
+            ctx.fillStyle = bgcolor;
+            ctx.font = `${fontsize}px "Noto Serif SC"`;
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+            for (let i = 0; i < lines.length + 2; i++) {
+                ctx.fillText(get_filler(img_w / fontsize), 0, fontsize * line_height_scale * i);
+            }
+
+            const fgcolor = document.getElementById('fgcolor').value;
+            ctx.fillStyle = fgcolor;
+            ctx.font = `${fontsize}px "Noto Serif SC"`;
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+            for (let i = 0; i < lines.length; i++) {
+                let x = fontsize;
+                let line = lines[i];
+                fillLine(x, fontsize * line_height_scale * (i + 1), line, fontsize);
+            }
+            return canvas;
+        }
+
+        function in_whitelist(char) {
+            const whitelist = "！？｡。＂＃＄％＆＇（）＊＋，－／：；＜＝＞＠［＼］＾＿｀｛｜｝～｟｠｢｣､、〃》「」『』【】〔〕〖〗〘〙〚〛〜〝〞〟〰〾〿–—‘’‛“”„‟…‧﹏．";
+            return whitelist.includes(char) || char.match(/[\u0000-\u00ff]/);
+        }
+
+        function insert_space(text) {
+            let new_text = '';
+            for (let i = 0; i < text.length; i++) {
+                new_text += text[i];
+                if (i < text.length - 1 && text[i] != '\n' && text[i + 1] != '\n') {
+                    if (!in_whitelist(text[i]) || !in_whitelist(text[i + 1])) {
+                        new_text += '  ';
+                    }
+                }
+            }
+            return new_text;
+        }
+
+        function do_generate() {
+            const text = document.getElementById('text').value;
+            const fontsize = document.getElementById('fontsize').value;
+            make_pic(insert_space(text), fontsize);
+        }
+
+        const generate = document.getElementById('generate');
+        generate.addEventListener('click', do_generate)
+
+        const download = document.getElementById('download');
+        download.addEventListener('click', () => {
+            let link = document.createElement('a');
+            link.download = 'pic.png';
+            link.href = document.getElementById('canvas').toDataURL();
+            link.click();
+        })
+    </script>
+</body>
+
+</html>
