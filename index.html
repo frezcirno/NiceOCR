@@ -197,7 +197,8 @@
 
         function do_generate() {
             const text = document.getElementById('text').value;
-            const fontsize = document.getElementById('fontsize').value;
+            let fontsize = document.getElementById('fontsize').value;
+            fontsize = parseInt(fontsize);
             make_pic(insert_space(text), fontsize);
         }
 
