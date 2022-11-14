@@ -118,7 +118,7 @@
             ctx.textBaseline = 'top';
             ctx.textAlign = 'left';
 
-            const full_line_lengths = text.split('\n').map(line => measureLine(line, fontsize));
+            const full_line_lengths = text.split('\n').map(line => measureLine(line, fontsize)).filter(x => x > 0);
             let w = full_line_lengths.reduce((a, b) => a + b, 0) / full_line_lengths.length;
             w = Math.min(w, 60 * fontsize);
             if (w % fontsize) {
